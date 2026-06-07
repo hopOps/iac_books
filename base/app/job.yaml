@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+spec:
+  template:
+    metadata:
+      name:  db-init
+      labels:
+        app: init-postgresdb
+    spec:
+      containers:
+      - image: docker.io/hopops/demo-books:latest
+        name: db-init
+        command: [ "python", "/script/init-db.py" ]
+        volumeMounts:
+        - name: db-init
+          mountPath: /script
+        env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: db-config
+                key: DB_HOST
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                name: db-config
+                key: DB_NAME
+          - name: DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: sammy.minimal-cluster.credentials.postgresql.acid.zalan.do
+                key: username
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: sammy.minimal-cluster.credentials.postgresql.acid.zalan.do
+                key: password
+      volumes:
+        - name: db-init
+          configMap:
+            name: db-init
+      restartPolicy: OnFailure

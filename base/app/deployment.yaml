@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    argocd.argoproj.io/compare-options: IgnoreExtraneous
+  labels:
+    app: app-books
+  name: app-books
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-books
+  strategy: {}
+  template:
+    metadata:
+
+      labels:
+        app: app-books
+    spec:
+      containers:
+      - image: DEMO_BOOKS
+        name: demo-books
+        command: [ "flask", "run", "--host=0.0.0.0" ]
+        ports:
+        - containerPort: 5000
+        env:
+          # Définie la variable d'environnement
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: db-config
+                key: DB_HOST
+          - name: DB_NAME
+            valueFrom:
+              configMapKeyRef:
+                name: db-config
+                key: DB_NAME
+          - name: DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: sammy.minimal-cluster.credentials.postgresql.acid.zalan.do
+                key: username
+          - name: DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: sammy.minimal-cluster.credentials.postgresql.acid.zalan.do
+                key: password
+          - name: POSTGRESQLCONNSTR_postgres_conn_string
+            value: dbname=$(DB_NAME) host=$(DB_HOST) port=5432 sslmode=require user=$(DB_USERNAME) password=$(DB_PASSWORD)
+        resources: {}

@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  DB_HOST: minimal-cluster
+  DB_NAME: flask_db
+kind: ConfigMap
+metadata:
+  name: db-config

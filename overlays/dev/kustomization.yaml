@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: dem-dev
+resources:
+  - ../../base
+  - ../../base/network/openshift/
+replicas:
+  - name: app-books
+    count: 1
+images:
+  - name: DEMO_BOOKS
+    newName: docker.io/hopops/books
+    newTag: 0.0.2
+patches:
+  - target:
+      group: route.openshift.io
+      version: v1
+      kind: Route
+    patch: |
+      - op: replace
+        path: /spec/host
+        value: "books-dev.apps.local"
+  - target:
+      group: acid.zalan.do
+      version: v1
+      kind: postgresql
+    patch: |-
+      - op: add
+        path: "/spec/podAnnotations"
+        value:
+          sidecar.istio.io/inject: 'true'

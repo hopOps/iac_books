@@ -1,0 +1,64 @@
+default:
+  tags:
+    - openshift
+
+variables:
+  ENV: "dev"
+  IMAGE_VERSION: "0.0.3"
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: never
+    - if: $CI_COMMIT_TAG
+      when: always
+    - if: '$CI_PIPELINE_SOURCE == "trigger"'
+      when: always
+
+stages:
+  - deploy-develop
+  - deploy-production
+
+OPS_Change_Imagetag:
+  stage: deploy-develop
+  image: docker.io/hopops/demo-ci-tools:0.0.5
+  before_script:
+    - git clone https://OAuth:${PIPE_TOKEN}@gitlab.com/dem/dem_iac/iac_books
+    - cd iac_books
+    - git switch test # pour le test
+    - git config --local user.email "hopops"
+    - git config --local user.name "gitlab"
+    - export PARAM="""(.images[] | select(.name == "\"${IMAGE_NAME}\"").newTag))  = "${IMAGE_VERSION}"""
+  script:
+    - cp overlays/${ENV}/kustomization.yaml kustomization.yaml 
+    - yq """(.images[] | select(.name == "\"${IMAGE_NAME}\"").newTag)  = "\"${IMAGE_VERSION}\"""  kustomization.yaml > overlays/${ENV}/kustomization.yaml 
+    - git add overlays/${ENV}/kustomization.yaml
+    - git commit -m "Change ImageTag to ${IMAGE_VERSION}"
+    - git push
+
+ARGO_Sync_Changes:
+  stage: deploy-develop
+  image: docker.io/argoproj/argocd:latest
+  variables:
+    ARGOCD_SERVER_ADDRESS: openshift-gitops.local
+    YOUR_APPLICATION_NAME: dem-dev
+    ARGOCD_USERNAME: admin
+    ARGOCD_PASSWORD_OR_TOKEN_INVAR: AHAH
+  script:
+    - argocd login ${ARGOCD_SERVER_ADDRESS} --username ${ARGOCD_USERNAME} --password ${ARGOCD_PASSWORD_OR_TOKEN} --grpc-web --insecure
+    - argocd app sync ${YOUR_APPLICATION_NAME}
+  needs:
+    - job: OPS_Change_Imagetag
+
+MR_ReadyToProd:
+  stage: deploy-production
+  image: docker.io/hopops/demo-ci-tools:0.0.5
+  script: |-
+    curl --request POST --header "PRIVATE-TOKEN: $PIPE_TOKEN" \
+      --data "source_branch=test" \
+      --data "target_branch=prod" \
+      --data "title=Update production env with $IMAGE_VERSION" \
+      --data "squash=True" \
+      --data "labels=MEP" \
+      "https://gitlab.com/scm/api/v4/projects/$CI_PROJECT_ID/merge_requests"
+  when: manual

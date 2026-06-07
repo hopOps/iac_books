@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dem-ppd
+
+resources:
+  - ../../base
+  - ../../base/network/openshift/
+
+replicas:
+  - name: app-books
+    count: 2
+
+images:
+  - name: DEMO_BOOKS
+    newName: docker.io/hopops/demo-books
+    newTag: 0.0.1
+
+patches:
+  - target:
+      group: route.openshift.io
+      version: v1
+      kind: Route
+    patch: |
+      - op: replace
+        path: /spec/host
+        value: "books-prd.apps.local"

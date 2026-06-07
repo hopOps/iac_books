@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: dem-dev
+resources:
+  - ../../base
+  - ../../base/network/kubernetes/
+replicas:
+  - name: app-books
+    count: 1
+images:
+  - name: DEMO_BOOKS
+    newName: docker.io/hopops/books
+    newTag: 0.0.13
+patches:
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+    patch: |
+      - op: replace
+        path: /spec/rules/0/host
+        value: "books-dev.apps.local"
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+    patch: |
+      - op: add
+        path: "/spec/template/metadata/annotations"
+        value:
+          sidecar.istio.io/inject: 'true'
+  - target:
+      group: acid.zalan.do
+      version: v1
+      kind: postgresql
+    patch: |-
+      - op: add
+        path: "/spec/podAnnotations"
+        value:
+          sidecar.istio.io/inject: 'true'
